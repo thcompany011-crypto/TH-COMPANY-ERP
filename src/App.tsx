@@ -120,7 +120,7 @@ function AuthScreen({ initialMode = "login", onRecoveryComplete }: { initialMode
           {mode !== "update" && <label className="auth-field">E-mail
             <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="voce@empresa.com.br" />
           </label>}
-          {mode !== "reset" && mode !== "updated" && <label className="auth-field">{mode === "update" ? "Nova senha" : "Senha"}
+          {mode !== "reset" && <label className="auth-field">{mode === "update" ? "Nova senha" : "Senha"}
             <input type="password" autoComplete={mode === "signup" || mode === "update" ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={mode === "signup" ? 8 : 1} placeholder={mode === "signup" ? "Mínimo de 8 caracteres" : "Sua senha"} />
           </label>}
           <button className="auth-submit" type="submit" disabled={busy}>
