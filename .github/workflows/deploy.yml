@@ -31,6 +31,18 @@ jobs:
         run: npm install
       - name: Build application
         run: npm run build
+      - name: Verify compiled site
+        run: |
+          test -f dist/index.html
+          if grep -q '/src/main.tsx' dist/index.html; then
+            echo "Erro: dist/index.html ainda aponta para o arquivo-fonte src/main.tsx."
+            exit 1
+          fi
+          if ! grep -q '/TH-COMPANY-ERP/' dist/index.html; then
+            echo "Erro: o HTML compilado não contém o caminho base esperado do GitHub Pages."
+            exit 1
+          fi
+          echo "HTML compilado validado."
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload build artifact
