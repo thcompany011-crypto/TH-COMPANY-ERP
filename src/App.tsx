@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import "./auth.css";
 
-type AuthMode = "login" | "signup" | "reset";
+type AuthMode = "login" | "signup" | "reset" | "update" | "updated";
 type NavItem = { label: string; symbol: string; section: string };
 
 const navigation: NavItem[] = [
@@ -23,8 +23,8 @@ const metrics = [
   { label: "Estoque baixo", value: "0", note: "Alertas serão implementados", symbol: "!" },
 ];
 
-function AuthScreen() {
-  const [mode, setMode] = useState<AuthMode>("login");
+function AuthScreen({ initialMode = "login", onRecoveryComplete }: { initialMode?: AuthMode; onRecoveryComplete?: () => void }) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
@@ -65,6 +65,12 @@ function AuthScreen() {
           : "Cadastro recebido! Confira seu e-mail para confirmar a conta. A empresa será criada automaticamente e você poderá entrar após confirmar.");
         setMode("login");
         setPassword("");
+      } else if (mode === "update") {
+        if (password.length < 8) throw new Error("A nova senha deve ter pelo menos 8 caracteres.");
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setMessage("Senha atualizada com sucesso. Continue para acessar o ERP.");
+        setMode("updated");
       } else if (mode === "reset") {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: window.location.origin,
@@ -83,12 +89,14 @@ function AuthScreen() {
     }
   }
 
-  const title = mode === "signup" ? "Crie sua empresa" : mode === "reset" ? "Recuperar acesso" : "Entre na sua conta";
+  const title = mode === "signup" ? "Crie sua empresa" : mode === "reset" ? "Recuperar acesso" : mode === "update" ? "Defina uma nova senha" : mode === "updated" ? "Senha atualizada" : "Entre na sua conta";
   const description = mode === "signup"
     ? "Comece seu espaço de gestão. A conta que cria a empresa recebe o perfil de proprietário."
     : mode === "reset"
       ? "Informe o e-mail da conta para receber as instruções de redefinição."
-      : "Acesse o ambiente seguro da sua empresa.";
+      : mode === "update" || mode === "updated"
+        ? "Escolha uma senha forte com pelo menos 8 caracteres."
+        : "Acesse o ambiente seguro da sua empresa.";
 
   return (
     <main className="auth-screen">
@@ -100,7 +108,7 @@ function AuthScreen() {
         <h1 id="auth-title">{title}</h1>
         <p className="auth-description">{description}</p>
         {message && <p className={isError ? "auth-message error" : "auth-message"} role="status">{message}</p>}
-        <form className="auth-form" onSubmit={handleSubmit}>
+        {mode === "updated" ? <button className="auth-submit" type="button" onClick={onRecoveryComplete}>Continuar para o ERP</button> : <form className="auth-form" onSubmit={handleSubmit}>
           {mode === "signup" && <>
             <label className="auth-field">Seu nome
               <input autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required minLength={2} placeholder="Nome do responsável" />
@@ -112,13 +120,13 @@ function AuthScreen() {
           <label className="auth-field">E-mail
             <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="voce@empresa.com.br" />
           </label>
-          {mode !== "reset" && <label className="auth-field">Senha
+          {mode !== "reset" && mode !== "updated" && <label className="auth-field">{mode === "update" ? "Nova senha" : "Senha"}
             <input type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={mode === "signup" ? 8 : 1} placeholder={mode === "signup" ? "Mínimo de 8 caracteres" : "Sua senha"} />
           </label>}
           <button className="auth-submit" type="submit" disabled={busy}>
             {busy ? "Aguarde..." : mode === "signup" ? "Criar empresa e conta" : mode === "reset" ? "Enviar instruções" : "Entrar com segurança"}
           </button>
-        </form>
+        </form>}
         <div className="auth-links">
           {mode !== "login" && <button className="auth-link" type="button" onClick={() => changeMode("login")}>Voltar para o login</button>}
           {mode === "login" && <>
@@ -219,6 +227,7 @@ function App() {
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(true);
   const [workspaceError, setWorkspaceError] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -255,8 +264,9 @@ function App() {
       else setLoading(false);
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
+      if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
       setSession(nextSession);
       setWorkspaceError("");
       if (nextSession) {
@@ -280,6 +290,7 @@ function App() {
   }
 
   if (loading) return <main className="setup-screen"><section className="setup-card"><h1>Carregando sua sessão…</h1><p>Verificando autenticação e vínculo da empresa.</p></section></main>;
+  if (recoveryMode) return <AuthScreen initialMode="update" onRecoveryComplete={() => setRecoveryMode(false)} />;
   if (!session) return <AuthScreen />;
   return <><Dashboard session={session} companyName={companyName} role={role} />{workspaceError && <div className="auth-message error" style={{ position: "fixed", bottom: 16, right: 16, maxWidth: 420, zIndex: 10 }}>{workspaceError}</div>}</>;
 }
