@@ -1,4 +1,4 @@
--- TH COMPANY ERP — reforço não destrutivo das permissões multiempresa
+-- TH COMPANY ERP — reforço não destrutivo das permissões multiempresa 
 -- Etapa 3.1. Este arquivo complementa 001_auth_multitenancy.sql.
 -- Revise antes de executar manualmente no SQL Editor do Supabase.
 --
